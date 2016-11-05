@@ -64,12 +64,16 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-__IO int16_t ADC1_Val;
+__IO int16_t ADC1_Val[2];
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	printf("%.2f\r\n", (ADC1_Val - 0x7F8) * 3.3f / 0xFFF);
+	/* Channel 0 Audio val*/
+	printf("%.2f\r\n", (ADC1_Val[0] - 0x7F8) * 3.3f / 0xFFF);
+	
+	/* Channel 2 current val*/
+	/* do nothing now*/
 }
 /* USER CODE END 0 */
 
@@ -97,7 +101,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
   HAL_ADCEx_Calibration_Start(&hadc1);
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 1);
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 2);
 	
   /* USER CODE END 2 */
 
@@ -108,8 +112,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 1);
-		
+		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 2);
   }
   /* USER CODE END 3 */
 
@@ -171,12 +174,12 @@ static void MX_ADC1_Init(void)
     /**Common config 
     */
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 2;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -187,6 +190,15 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure Regular Channel 
+    */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = 2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();

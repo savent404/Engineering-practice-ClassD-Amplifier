@@ -92,9 +92,10 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     __HAL_RCC_ADC1_CLK_ENABLE();
   
     /**ADC1 GPIO Configuration    
-    PA0-WKUP     ------> ADC1_IN0 
+    PA0-WKUP     ------> ADC1_IN0
+    PA2     ------> ADC1_IN2 
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_0;
+    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_2;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -103,7 +104,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     hdma_adc1.Instance = DMA1_Channel1;
     hdma_adc1.Init.Direction = DMA_PERIPH_TO_MEMORY;
     hdma_adc1.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_adc1.Init.MemInc = DMA_MINC_DISABLE;
+    hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
     hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_adc1.Init.Mode = DMA_NORMAL;
@@ -134,9 +135,10 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     __HAL_RCC_ADC1_CLK_DISABLE();
   
     /**ADC1 GPIO Configuration    
-    PA0-WKUP     ------> ADC1_IN0 
+    PA0-WKUP     ------> ADC1_IN0
+    PA2     ------> ADC1_IN2 
     */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0);
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0|GPIO_PIN_2);
 
     /* Peripheral DMA DeInit*/
     HAL_DMA_DeInit(hadc->DMA_Handle);
