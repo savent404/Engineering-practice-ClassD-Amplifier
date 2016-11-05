@@ -35,6 +35,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "lmd18200.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -42,12 +43,21 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+__IO int16_t ADC1_Val[2];
+const char cmd_buf[][20] = {
+	"ADC1SCANMODE",
+	"ADC2SCANMODE",
+	"FORCEDRIVE",
+	"BREAK",
+};
+__IO uint8_t auto_adc_val1 = 0;
+__IO uint8_t auto_adc_val2 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,22 +68,80 @@ static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM3_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                 
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-__IO int16_t ADC1_Val[2];
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+extern int usr_puts(char *pt);
+void strupr(char *pt) {
+	while (*pt) {
+		if (*pt <= 'z' && *pt >= 'a') {
+			*pt -= 32;
+		} pt += 1;
+	}
+}
+
+
+void cmd(char *pt) {
+	char buf[20], buf_1[20];
+	float buf_f;
+	strupr(pt);
+	sscanf(pt, "%s", buf);
+	{
+		if (!strcmp(cmd_buf[0], buf)) {
+			sscanf(pt, "%s %s", buf, buf_1);
+			if (!strcmp("ON", buf_1)) {
+				auto_adc_val1 = 1;
+			}
+			else {
+				auto_adc_val1 = 0;
+				printf("Auto print ADC1 stopped\n");
+			}
+		}
+		if (!strcmp(cmd_buf[1], buf)) {
+			sscanf(pt, "%s %s", buf, buf_1);
+			if (!strcmp("ON", buf_1)) {
+				auto_adc_val2 = 1;
+			}
+			else {
+				auto_adc_val2 = 0;
+				printf("Auto print ADC2 stopped\n");
+			}
+		}
+		if (!strcmp(cmd_buf[2], buf)) {
+			sscanf(pt, "%s %f", buf, &buf_f);
+			if (buf_f <= 1 && buf_f >= -1)
+				LMD18200_Drive(buf_f);
+			else {
+				printf("Error para\n");
+			}
+		}
+		if (!strcmp(cmd_buf[3], buf)) {
+			LMD18200_Break(1);
+			printf("Breaked\n");
+		}
+	}
+}
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	static uint16_t cnt = 0;
+	char buf[10];
 	/* Channel 0 Audio val*/
-	printf("%.2f\r\n", (ADC1_Val[0] - 0x7F8) * 3.3f / 0xFFF);
+	if (auto_adc_val1 && ++cnt > 100) {
+		printf("%.2f\r\n", (ADC1_Val[0] - 0x7F8) * 3.3f / 0xFFF);
+	}
 	
 	/* Channel 2 current val*/
-	/* do nothing now*/
+	if (auto_adc_val2 && ++cnt > 100) {
+		printf("%.2f\r\n", (ADC1_Val[1] - 0x7F8) * 3.3f / 0xFFF);
+	}
+	if (cnt > 100)
+		cnt = 0;
 }
 
 /* USER CODE END 0 */
@@ -82,7 +150,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	
+	char str[20];
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -99,11 +167,12 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
+  MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
 	HAL_ADCEx_Calibration_Start(&hadc1);
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 2);
 	HAL_TIM_Base_Start(&htim1);
+	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 	LMD18200_Init();
   /* USER CODE END 2 */
@@ -115,7 +184,8 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 2);
+		gets(str);
+		cmd(str);
   }
   /* USER CODE END 3 */
 
@@ -298,6 +368,39 @@ static void MX_TIM1_Init(void)
 
 }
 
+/* TIM3 init function */
+static void MX_TIM3_Init(void)
+{
+
+  TIM_SlaveConfigTypeDef sSlaveConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1279;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_DISABLE;
+  sSlaveConfig.InputTrigger = TIM_TS_ITR0;
+  if (HAL_TIM_SlaveConfigSynchronization(&htim3, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
 /* USART1 init function */
 static void MX_USART1_UART_Init(void)
 {
@@ -383,7 +486,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
 /* USER CODE BEGIN Callback 1 */
-
+	if (htim->Instance == TIM3) {
+		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 2);
+	}
 /* USER CODE END Callback 1 */
 }
 

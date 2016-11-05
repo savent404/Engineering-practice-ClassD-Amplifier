@@ -49,5 +49,11 @@ static void LMD18200_Dir(char cmd) {
 	}
 }
 static void LMD18200_Dutyc(float dutycycle) {
-	TIM1->CCR1 = (dutycycle)*160 - 1;
+	uint16_t buf = dutycycle * 160;
+	if (buf) {
+		TIM1->CCR1 = buf - 1;
+	}
+	else {
+		TIM1->CCR1 = buf;
+	}
 }
