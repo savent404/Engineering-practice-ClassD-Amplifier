@@ -13,17 +13,17 @@ void LMD18200_Break(char cmd) {
 
 void LMD18200_Drive(float offset) {
 	if (offset > 0) {
-		LMD18200_Break(1);
+		LMD18200_Break(0);
 		LMD18200_Dir(1);
 		LMD18200_Dutyc(offset);
 	}
 	else if (offset < 0) {
-		LMD18200_Break(1);
+		LMD18200_Break(0);
 		LMD18200_Dir(0);
 		LMD18200_Dutyc(-offset);
 	}
 	else {
-		LMD18200_Break(0);
+		LMD18200_Break(1);
 		LMD18200_Dutyc(0);
 	}
 }
@@ -36,7 +36,7 @@ float LMD18200_T(void) {
 }
 
 void LMD18200_Init(void) {
-	LMD18200_Break(0);
+	LMD18200_Break(1);
 	LMD18200_Dir(1);
 	LMD18200_Dutyc(0);
 }
@@ -49,5 +49,5 @@ static void LMD18200_Dir(char cmd) {
 	}
 }
 static void LMD18200_Dutyc(float dutycycle) {
-	;
+	TIM1->CCR1 = (dutycycle)*160 - 1;
 }
