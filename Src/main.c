@@ -49,15 +49,19 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-__IO int16_t ADC1_Val[2];
+__IO uint16_t ADC1_Val[2];
 const char cmd_buf[][20] = {
 	"ADC1SCANMODE",
 	"ADC2SCANMODE",
 	"FORCEDRIVE",
 	"BREAK",
+	"FOLLOWMODE",
+	"GAIN",
 };
 __IO uint8_t auto_adc_val1 = 0;
 __IO uint8_t auto_adc_val2 = 0;
+__IO uint8_t follow_falg   = 0;
+__IO uint8_t gain_val      = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -126,21 +130,45 @@ void cmd(char *pt) {
 			LMD18200_Break(1);
 			printf("Breaked\n");
 		}
+		if (!strcmp(cmd_buf[4], buf)) {
+			sscanf(pt, "%s %s", buf, buf_1);
+			if (!strcmp("ON", buf_1)) {
+				follow_falg = 1;
+				printf("Audio follow now");
+			}
+			else {
+				printf("Audio stop");
+			}
+		}
+		if (!strcmp(cmd_buf[5], buf)) {
+			sscanf(pt, "%s %f", buf, &buf_f);
+			if (buf_f > 20 || buf_f < 1) {
+				printf("Error para\n");
+			}
+			else {
+				gain_val = (char)buf_f;
+				printf("Gain:\t%d", gain_val);
+			}
+		}
 	}
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint16_t cnt = 0;
-	char buf[10];
 	/* Channel 0 Audio val*/
-	if (auto_adc_val1 && ++cnt > 100) {
-		printf("%.2f\r\n", (ADC1_Val[0] - 0x7F8) * 3.3f / 0xFFF);
+	if (auto_adc_val1) {
+		if (follow_falg)
+			LMD18200_Drive((ADC1_Val[0] - 0x7F8)*gain_val / 0xFFF);
+		
+		if (cnt > 100)
+			printf("%.2f\r\n", (ADC1_Val[0] - 0x7F8) * 3.3f / 0xFFF);
 	}
 	
 	/* Channel 2 current val*/
-	if (auto_adc_val2 && ++cnt > 100) {
-		printf("%.2f\r\n", (ADC1_Val[1] - 0x7F8) * 3.3f / 0xFFF);
+	if (auto_adc_val2) {
+		if (cnt > 100)
+			printf("%.2f\r\n", (ADC1_Val[1]) * 3.3f / 0xFFF);
 	}
-	if (cnt > 100)
+	if (++cnt > 100)
 		cnt = 0;
 }
 
