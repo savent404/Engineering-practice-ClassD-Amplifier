@@ -1,5 +1,7 @@
 #include "LMD18200.h"
 
+extern TIM_HandleTypeDef htim1;
+
 void LMD18200_Break(char cmd) {
 	if (cmd) {
 		HAL_GPIO_WritePin(BREAK_GPIO_Port, BREAK_Pin, GPIO_PIN_SET);
