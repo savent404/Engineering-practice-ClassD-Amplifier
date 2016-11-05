@@ -32,7 +32,7 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
-#include <rt_sys.h>
+
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
@@ -60,15 +60,17 @@ static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-
+                
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+__IO int16_t ADC1_Val;
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	printf("%.2f\r\n", (ADC1_Val - 0x7F8) * 3.3f / 0xFFF);
+}
 /* USER CODE END 0 */
 
 int main(void)
@@ -94,7 +96,9 @@ int main(void)
   MX_USART1_UART_Init();
 
   /* USER CODE BEGIN 2 */
-
+  HAL_ADCEx_Calibration_Start(&hadc1);
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 1);
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -104,7 +108,8 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 1);
+		
   }
   /* USER CODE END 3 */
 
@@ -161,6 +166,7 @@ static void MX_ADC1_Init(void)
 {
 
   ADC_ChannelConfTypeDef sConfig;
+  ADC_InjectionConfTypeDef sConfigInjected;
 
     /**Common config 
     */
@@ -180,8 +186,23 @@ static void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure Injected Channel 
+    */
+  sConfigInjected.InjectedChannel = ADC_CHANNEL_0;
+  sConfigInjected.InjectedRank = 1;
+  sConfigInjected.InjectedNbrOfConversion = 1;
+  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfigInjected.ExternalTrigInjecConv = ADC_INJECTED_SOFTWARE_START;
+  sConfigInjected.AutoInjectedConv = DISABLE;
+  sConfigInjected.InjectedDiscontinuousConvMode = DISABLE;
+  sConfigInjected.InjectedOffset = 0;
+  if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
   {
     Error_Handler();
   }
@@ -326,6 +347,27 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM2 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+/* USER CODE BEGIN Callback 0 */
+
+/* USER CODE END Callback 0 */
+  if (htim->Instance == TIM2) {
+    HAL_IncTick();
+  }
+/* USER CODE BEGIN Callback 1 */
+
+/* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
