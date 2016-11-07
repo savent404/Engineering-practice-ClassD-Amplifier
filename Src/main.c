@@ -98,6 +98,8 @@ void cmd(char *pt) {
 	strupr(pt);
 	sscanf(pt, "%s", buf);
 	{
+		
+		/* cmd[0]: ADC1SCANMODE */
 		if (!strcmp(cmd_buf[0], buf)) {
 			sscanf(pt, "%s %s", buf, buf_1);
 			if (!strcmp("ON", buf_1)) {
@@ -108,6 +110,8 @@ void cmd(char *pt) {
 				printf("Auto print ADC1 stopped\n");
 			}
 		}
+		
+		/* cmd[1]: ADC2SCANMODE */
 		if (!strcmp(cmd_buf[1], buf)) {
 			sscanf(pt, "%s %s", buf, buf_1);
 			if (!strcmp("ON", buf_1)) {
@@ -118,6 +122,7 @@ void cmd(char *pt) {
 				printf("Auto print ADC2 stopped\n");
 			}
 		}
+		/* cmd[2]: FORCEDRIVE */
 		if (!strcmp(cmd_buf[2], buf)) {
 			sscanf(pt, "%s %f", buf, &buf_f);
 			if (buf_f <= 1 && buf_f >= -1)
@@ -126,10 +131,12 @@ void cmd(char *pt) {
 				printf("Error para\n");
 			}
 		}
+		/* cmd[3]: BREAK */
 		if (!strcmp(cmd_buf[3], buf)) {
 			LMD18200_Break(1);
 			printf("Breaked\n");
 		}
+		/* cmd[4]: FOLLOWMODE */
 		if (!strcmp(cmd_buf[4], buf)) {
 			sscanf(pt, "%s %s", buf, buf_1);
 			if (!strcmp("ON", buf_1)) {
@@ -140,6 +147,7 @@ void cmd(char *pt) {
 				printf("Audio stop");
 			}
 		}
+		/* cmd[5]: GAIN */
 		if (!strcmp(cmd_buf[5], buf)) {
 			sscanf(pt, "%s %f", buf, &buf_f);
 			if (buf_f > 20 || buf_f < 1) {
