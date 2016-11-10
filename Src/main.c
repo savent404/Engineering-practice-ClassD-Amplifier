@@ -60,7 +60,7 @@ const char cmd_buf[][20] = {
 };
 
 #define ADC_Val_OFFSET 0x7FF
-__IO uint8_t auto_adc_val1 = 1;
+__IO uint8_t auto_adc_val1 = 0;
 __IO uint8_t auto_adc_val2 = 0;
 __IO uint8_t follow_falg   = 1;
 __IO uint8_t gain_val      = 1;
@@ -207,11 +207,12 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
+	LMD18200_Init();
 	HAL_ADCEx_Calibration_Start(&hadc1);
 	HAL_TIM_Base_Start(&htim1);
 	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-	LMD18200_Init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -415,7 +416,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1279;
+  htim3.Init.Period = 1999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
   {
