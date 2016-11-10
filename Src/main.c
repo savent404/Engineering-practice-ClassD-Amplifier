@@ -131,22 +131,31 @@ void cmd(char *pt) {
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint16_t cnt = 0;
+	static float adc[2] = {0.0, 0.0};
+	
 	/* Channel 0 Audio val*/
 	if (switch_flag == SWITCH_ON)
 		LMD18200_Drive((ADC1_Val[0] - ADC_Val_OFFSET)*(float)gain_val / 0xFFF);
   else
     LMD18200_Break(0);
   
-  if (cnt == 500) {
+  if (cnt == 1000) {
     if (show_flag == SHOW_ADC) {
-        printf("%05.2f\r\n", (ADC1_Val[0] - ADC_Val_OFFSET) * 3.3f / 0xFFF);
+        printf("%05.2f\r\n", (adc[0] - ADC_Val_OFFSET) * 3.3f / 0xFFF);
     }
     else if (show_flag == SHOW_POWER) {
-        printf("%.2f\r\n", (ADC1_Val[1]) * 3.3f / 0xFFF);
+        printf("%.2f\r\n", (adc[1]) * 3.3f * 20.0f / 0xFFF);
     }
   }
-	if (++cnt > 500)
+	if (++cnt > 1000)
 		cnt = 0;
+	if (!cnt % 10) {
+		adc[1] += ADC1_Val[1];
+		adc[1] /= 2;
+		
+		adc[0] += ADC1_Val[0];
+		adc[0] /= 2;
+	}
 }
 
 /* USER CODE END 0 */
@@ -268,7 +277,7 @@ static void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -313,7 +322,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 319;
+  htim1.Init.Period = 159;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
