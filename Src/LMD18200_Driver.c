@@ -13,14 +13,17 @@ void LMD18200_Break(char cmd) {
 
 void LMD18200_Drive(float offset) {
 	if (offset > 0) {
-		LMD18200_Break(0);
 		LMD18200_Dir(1);
 		LMD18200_Dutyc(offset);
+		LMD18200_Break(0);
 	}
 	else if (offset < 0) {
-		LMD18200_Break(0);
 		LMD18200_Dir(0);
 		LMD18200_Dutyc(-offset);
+		LMD18200_Break(0);
+	}
+	else if (offset < -0.5 || offset > 0.5) {
+		LMD18200_Break(0);
 	}
 	else {
 		LMD18200_Break(1);

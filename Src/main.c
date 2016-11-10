@@ -58,9 +58,11 @@ const char cmd_buf[][20] = {
 	"FOLLOWMODE",
 	"GAIN",
 };
-__IO uint8_t auto_adc_val1 = 0;
+
+#define ADC_Val_OFFSET 0x7FF
+__IO uint8_t auto_adc_val1 = 1;
 __IO uint8_t auto_adc_val2 = 0;
-__IO uint8_t follow_falg   = 0;
+__IO uint8_t follow_falg   = 1;
 __IO uint8_t gain_val      = 1;
 /* USER CODE END PV */
 
@@ -163,12 +165,11 @@ void cmd(char *pt) {
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint16_t cnt = 0;
 	/* Channel 0 Audio val*/
+	if (follow_falg)
+		LMD18200_Drive((ADC1_Val[0] - ADC_Val_OFFSET)*(float)gain_val / 0xFFF);
 	if (auto_adc_val1) {
-		if (follow_falg)
-			LMD18200_Drive((ADC1_Val[0] - 0x7F8)*gain_val / 0xFFF);
-		
-		if (cnt > 100)
-			printf("%.2f\r\n", (ADC1_Val[0] - 0x7F8) * 3.3f / 0xFFF);
+		if (cnt >= 100)
+			printf("%05.2f\r\n", (ADC1_Val[0] - ADC_Val_OFFSET) * 3.3f / 0xFFF);
 	}
 	
 	/* Channel 2 current val*/
@@ -343,7 +344,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 159;
+  htim1.Init.Period = 319;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
