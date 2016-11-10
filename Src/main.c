@@ -50,20 +50,19 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 __IO uint16_t ADC1_Val[2];
-const char cmd_buf[][20] = {
-	"ADC1SCANMODE",
-	"ADC2SCANMODE",
-	"FORCEDRIVE",
-	"BREAK",
-	"FOLLOWMODE",
-	"GAIN",
-};
 
 #define ADC_Val_OFFSET 0x7FF
-__IO uint8_t auto_adc_val1 = 0;
-__IO uint8_t auto_adc_val2 = 0;
-__IO uint8_t follow_falg   = 1;
-__IO uint8_t gain_val      = 1;
+
+#define SWITCH_ON          1
+#define SWITCH_OFF         0
+__IO uint8_t switch_flag = SWITCH_ON;
+
+#define SHOW_ADC           1
+#define SHOW_POWER         2
+#define SHOW_NONE          0
+__IO uint8_t show_flag   = SHOW_NONE;
+
+__IO float gain_val    = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,95 +88,64 @@ void strupr(char *pt) {
 	while (*pt) {
 		if (*pt <= 'z' && *pt >= 'a') {
 			*pt -= 32;
-		} pt += 1;
-	}
+		} pt += 1;}
 }
-
 
 void cmd(char *pt) {
 	char buf[20], buf_1[20];
 	float buf_f;
 	strupr(pt);
-	sscanf(pt, "%s", buf);
-	{
-		
-		/* cmd[0]: ADC1SCANMODE */
-		if (!strcmp(cmd_buf[0], buf)) {
-			sscanf(pt, "%s %s", buf, buf_1);
-			if (!strcmp("ON", buf_1)) {
-				auto_adc_val1 = 1;
-			}
-			else {
-				auto_adc_val1 = 0;
-				printf("Auto print ADC1 stopped\n");
-			}
+	sscanf(pt, "%s %s", buf, buf_1);
+	if (!strcmp(buf, "SWITCH")) {
+		if (!strcmp(buf_1, "ON")) {
+			switch_flag = SWITCH_ON;
+			printf("SWITCH ON\n");
 		}
-		
-		/* cmd[1]: ADC2SCANMODE */
-		if (!strcmp(cmd_buf[1], buf)) {
-			sscanf(pt, "%s %s", buf, buf_1);
-			if (!strcmp("ON", buf_1)) {
-				auto_adc_val2 = 1;
-			}
-			else {
-				auto_adc_val2 = 0;
-				printf("Auto print ADC2 stopped\n");
-			}
+		else if (!strcmp(buf_1, "OFF")){
+			switch_flag = SWITCH_OFF;
+			printf("SWITCH OFF\n");
 		}
-		/* cmd[2]: FORCEDRIVE */
-		if (!strcmp(cmd_buf[2], buf)) {
-			sscanf(pt, "%s %f", buf, &buf_f);
-			if (buf_f <= 1 && buf_f >= -1)
-				LMD18200_Drive(buf_f);
-			else {
-				printf("Error para\n");
-			}
+	}
+	else if (!strcmp(buf, "SHOW")) {
+		if (!strcmp(buf_1, "ADC")) {
+			show_flag = SHOW_ADC;
 		}
-		/* cmd[3]: BREAK */
-		if (!strcmp(cmd_buf[3], buf)) {
-			LMD18200_Break(1);
-			printf("Breaked\n");
+		else if (!strcmp(buf_1, "POWER")) {
+			show_flag = SHOW_POWER;
 		}
-		/* cmd[4]: FOLLOWMODE */
-		if (!strcmp(cmd_buf[4], buf)) {
-			sscanf(pt, "%s %s", buf, buf_1);
-			if (!strcmp("ON", buf_1)) {
-				follow_falg = 1;
-				printf("Audio follow now");
-			}
-			else {
-				printf("Audio stop");
-			}
+		else if (!strcmp(buf_1, "NONE")) {
+			show_flag = SHOW_NONE;
+			printf("Stop showing\n");
 		}
-		/* cmd[5]: GAIN */
-		if (!strcmp(cmd_buf[5], buf)) {
-			sscanf(pt, "%s %f", buf, &buf_f);
-			if (buf_f > 20 || buf_f < 1) {
-				printf("Error para\n");
-			}
-			else {
-				gain_val = (char)buf_f;
-				printf("Gain:\t%d", gain_val);
-			}
+		else {
+			printf("Para: ADC,POWER,NONE\n");
 		}
+	}
+	else if (!strcmp(buf, "GAIN")) {
+		sscanf(buf_1, "%f", &buf_f);
+		if (buf_f <= 20.0 && buf_f >= 1.0) {
+			gain_val = buf_f;
+		}
+		printf("GAIN: %.2f\n", gain_val);
 	}
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	static uint16_t cnt = 0;
 	/* Channel 0 Audio val*/
-	if (follow_falg)
+	if (switch_flag == SWITCH_ON)
 		LMD18200_Drive((ADC1_Val[0] - ADC_Val_OFFSET)*(float)gain_val / 0xFFF);
-	if (auto_adc_val1) {
-		if (cnt >= 100)
-			printf("%05.2f\r\n", (ADC1_Val[0] - ADC_Val_OFFSET) * 3.3f / 0xFFF);
-	}
-	
-	/* Channel 2 current val*/
-	if (auto_adc_val2) {
-		if (cnt > 100)
-			printf("%.2f\r\n", (ADC1_Val[1]) * 3.3f / 0xFFF);
-	}
-	if (++cnt > 100)
+  else
+    LMD18200_Break(0);
+  
+  if (cnt == 500) {
+    if (show_flag == SHOW_ADC) {
+        printf("%05.2f\r\n", (ADC1_Val[0] - ADC_Val_OFFSET) * 3.3f / 0xFFF);
+    }
+    else if (show_flag == SHOW_POWER) {
+        printf("%.2f\r\n", (ADC1_Val[1]) * 3.3f / 0xFFF);
+    }
+  }
+	if (++cnt > 500)
 		cnt = 0;
 }
 
