@@ -40,7 +40,6 @@
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
-#define TIM_Freq 400000
 
 #define DIR_Pin GPIO_PIN_10
 #define DIR_GPIO_Port GPIOB

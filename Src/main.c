@@ -34,8 +34,7 @@
 #include "stm32f1xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include "lmd18200.h"
-#include "string.h"
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -49,20 +48,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-__IO uint16_t ADC1_Val[2];
 
-#define ADC_Val_OFFSET 0x7FF
-
-#define SWITCH_ON          1
-#define SWITCH_OFF         0
-__IO uint8_t switch_flag = SWITCH_ON;
-
-#define SHOW_ADC           1
-#define SHOW_POWER         2
-#define SHOW_NONE          0
-__IO uint8_t show_flag   = SHOW_NONE;
-
-__IO float gain_val    = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -80,91 +66,27 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+#define ADC_BUFFER_SIZE 256
+static uint16_t Adc_Val[ADC_BUFFER_SIZE];
+static uint8_t  Convert_Doen = 0;
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-extern int usr_puts(char *pt);
-void strupr(char *pt) {
-	while (*pt) {
-		if (*pt <= 'z' && *pt >= 'a') {
-			*pt -= 32;
-		} pt += 1;}
-}
-
-void cmd(char *pt) {
-	char buf[20], buf_1[20];
-	float buf_f;
-	strupr(pt);
-	sscanf(pt, "%s %s", buf, buf_1);
-	if (!strcmp(buf, "SWITCH")) {
-		if (!strcmp(buf_1, "ON")) {
-			switch_flag = SWITCH_ON;
-			printf("SWITCH ON\n");
-		}
-		else if (!strcmp(buf_1, "OFF")){
-			switch_flag = SWITCH_OFF;
-			printf("SWITCH OFF\n");
-		}
-	}
-	else if (!strcmp(buf, "SHOW")) {
-		if (!strcmp(buf_1, "ADC")) {
-			show_flag = SHOW_ADC;
-		}
-		else if (!strcmp(buf_1, "POWER")) {
-			show_flag = SHOW_POWER;
-		}
-		else if (!strcmp(buf_1, "NONE")) {
-			show_flag = SHOW_NONE;
-			printf("Stop showing\n");
-		}
-		else {
-			printf("Para: ADC,POWER,NONE\n");
-		}
-	}
-	else if (!strcmp(buf, "GAIN")) {
-		sscanf(buf_1, "%f", &buf_f);
-		if (buf_f <= 20.0 && buf_f >= 1.0) {
-			gain_val = buf_f;
-		}
-		printf("GAIN: %.2f\n", gain_val);
-	}
+void Audio_Get(void) {
+  HAL_TIM_Base_Start(&htim3);
+  HAL_ADCEx_Calibration_Start(&hadc1);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&Adc_Val, ADC_BUFFER_SIZE);
 }
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	static uint16_t cnt = 0;
-	static float adc[2] = {0.0, 0.0};
-	
-	/* Channel 0 Audio val*/
-	if (switch_flag == SWITCH_ON)
-		LMD18200_Drive((ADC1_Val[0] - ADC_Val_OFFSET)*(float)gain_val / 0xFFF);
-  else
-    LMD18200_Break(0);
-  
-  if (cnt == 1000) {
-    if (show_flag == SHOW_ADC) {
-        printf("%05.2f\r\n", (adc[0] - ADC_Val_OFFSET) * 3.3f / 0xFFF);
-    }
-    else if (show_flag == SHOW_POWER) {
-        printf("%.2f\r\n", (adc[1]) * 3.3f * 20.0f / 0xFFF);
-    }
-  }
-	if (++cnt > 1000)
-		cnt = 0;
-	if (!cnt % 10) {
-		adc[1] += ADC1_Val[1];
-		adc[1] /= 2;
-		
-		adc[0] += ADC1_Val[0];
-		adc[0] /= 2;
-	}
+	Convert_Doen = 1;
 }
-
 /* USER CODE END 0 */
 
 int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	char str[20];
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -184,12 +106,7 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-	LMD18200_Init();
-	HAL_ADCEx_Calibration_Start(&hadc1);
-	HAL_TIM_Base_Start(&htim1);
-	HAL_TIM_Base_Start_IT(&htim3);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-
+  Audio_Get();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -199,8 +116,10 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-		gets(str);
-		cmd(str);
+    if (Convert_Doen) {
+			Convert_Doen = 0;
+      HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&Adc_Val, ADC_BUFFER_SIZE);
+    }
   }
   /* USER CODE END 3 */
 
@@ -262,12 +181,12 @@ static void MX_ADC1_Init(void)
     /**Common config 
     */
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_TRGO;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 1;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -277,16 +196,7 @@ static void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-    /**Configure Regular Channel 
-    */
-  sConfig.Channel = ADC_CHANNEL_2;
-  sConfig.Rank = 2;
+  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -294,10 +204,10 @@ static void MX_ADC1_Init(void)
 
     /**Configure Injected Channel 
     */
-  sConfigInjected.InjectedChannel = ADC_CHANNEL_0;
+  sConfigInjected.InjectedChannel = ADC_CHANNEL_2;
   sConfigInjected.InjectedRank = 1;
   sConfigInjected.InjectedNbrOfConversion = 1;
-  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_71CYCLES_5;
   sConfigInjected.ExternalTrigInjecConv = ADC_INJECTED_SOFTWARE_START;
   sConfigInjected.AutoInjectedConv = DISABLE;
   sConfigInjected.InjectedDiscontinuousConvMode = DISABLE;
@@ -391,9 +301,9 @@ static void MX_TIM3_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
 
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
+  htim3.Init.Prescaler = 63;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1999;
+  htim3.Init.Period = 99;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
   {
@@ -407,7 +317,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
 
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
@@ -501,9 +411,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
 /* USER CODE BEGIN Callback 1 */
-	if (htim->Instance == TIM3) {
-		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&ADC1_Val, 2);
-	}
+
 /* USER CODE END Callback 1 */
 }
 
