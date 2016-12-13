@@ -40,6 +40,8 @@
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
+#define TIM_MAX 720
+#define AUDIO_FREQ 10000
 
 #define DIR_Pin GPIO_PIN_10
 #define DIR_GPIO_Port GPIOB
