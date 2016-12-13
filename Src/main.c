@@ -35,6 +35,7 @@
 
 /* USER CODE BEGIN Includes */
 #include <arm_math.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -69,14 +70,41 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 #define ADC_BUFFER_SIZE 256
-int16_t Adc_Val[2][ADC_BUFFER_SIZE];
-uint8_t  Convert_Done = 0;
-uint8_t  Loop_loc     = 0;
+int16_t Adc_Val[2][ADC_BUFFER_SIZE] = {0};
+uint8_t Convert_Done = 0;
+uint8_t Loop_loc     = 0;
+
+/* User Control Flag */
+enum {System_ON, System_OFF} System_Status = System_ON;
+#define MAX_AUDIO    20
+#define MAX_offset   25
+enum {Aduio_none, Aduio_echo} Audio_effect = Aduio_none;
+uint8_t Audio_Grade = 5; //(0~20), Aduio_Grade=20 is louder
 
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void Audio_Output(void) {
+  static uint32_t cnt;
+  uint8_t loc = (Loop_loc - 1)%2;
+  if (System_Status == System_ON) {
+    TIM3->CCR1 = ((Adc_Val[loc][cnt]>0 ? Adc_Val[loc][cnt] : -Adc_Val[loc][cnt]) * TIM_MAX / 0x800);
+    if (Adc_Val[loc][cnt] < 0)
+    HAL_GPIO_WritePin(DIR_GPIO_Port, DIR_Pin, GPIO_PIN_SET);
+    else
+    HAL_GPIO_WritePin(DIR_GPIO_Port, DIR_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BREAK_GPIO_Port, BREAK_Pin, GPIO_PIN_RESET);
+  }
+  else if (System_Status == System_OFF) {
+    TIM3->CCR1 = 0;
+    HAL_GPIO_WritePin(BREAK_GPIO_Port, BREAK_Pin, GPIO_PIN_SET);
+  }
+
+  //whatever system is running, shift pointer.
+  cnt += 1;
+  cnt %= ADC_BUFFER_SIZE;
+}
 void Audio_Get(void) {
   HAL_TIM_Base_Start(&htim3);
   HAL_ADCEx_Calibration_Start(&hadc1);
@@ -90,9 +118,7 @@ void PWM_Set(void) {
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 }
-void AnalogOutput(int16_t adc_val) {
-	
-}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 	uint16_t cnt;
 	int16_t *pt = Adc_Val[Loop_loc];
@@ -101,6 +127,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		//Get Real Val
 		*pt &= 0x0FFF;
 		*pt -= 0xD54;
+
+    //Voice Grade
+    *pt = *pt * Audio_Grade / MAX_offset;
+
+    //audio effect
+    if (Audio_effect == Aduio_echo) {
+      if (cnt >= 5)
+      *(pt - 5) += *pt / 4;
+    }
 	}
   Convert_Done = 1;
 	if (Convert_Done) {
@@ -109,6 +144,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&Adc_Val[Loop_loc], ADC_BUFFER_SIZE);
 	}
 }
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -473,7 +509,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
 /* USER CODE BEGIN Callback 1 */
-
+  if (htim->Instance == TIM3) {
+    Audio_Output();
+  }
 /* USER CODE END Callback 1 */
 }
 
